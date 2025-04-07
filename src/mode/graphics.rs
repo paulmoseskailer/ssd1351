@@ -164,11 +164,12 @@ use self::embedded_graphics_core::prelude::{
 use self::embedded_graphics_core::{prelude::PointsIter, primitives::Rectangle};
 
 #[cfg(feature = "graphics")]
+#[maybe_async::maybe_async(AFIT)]
 impl<DI: WriteOnlyDataCommand> DrawTarget for GraphicsMode<DI> {
     type Color = Rgb565;
     type Error = ();
 
-    fn draw_iter<I>(&mut self, pixels: I) -> Result<(), Self::Error>
+    async fn draw_iter<I>(&mut self, pixels: I) -> Result<(), Self::Error>
     where
         I: IntoIterator<Item = Pixel<Self::Color>>,
     {
@@ -185,7 +186,7 @@ impl<DI: WriteOnlyDataCommand> DrawTarget for GraphicsMode<DI> {
     }
 
     #[cfg(not(feature = "buffered"))]
-    fn fill_contiguous<I>(&mut self, area: &Rectangle, colors: I) -> Result<(), Self::Error>
+    async fn fill_contiguous<I>(&mut self, area: &Rectangle, colors: I) -> Result<(), Self::Error>
     where
         I: IntoIterator<Item = Self::Color>,
     {
