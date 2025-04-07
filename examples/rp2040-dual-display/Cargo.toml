@@ -9,6 +9,7 @@ edition = "2021"
 ssd1351 = "0.5.0"
 embedded-graphics = "0.8.1"
 tinybmp = "0.6.0"
+log = "0.4"
 
 embedded-hal = "1.0.0"
 
