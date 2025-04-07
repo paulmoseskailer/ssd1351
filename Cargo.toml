@@ -16,17 +16,16 @@ exclude = [
 ]
 
 [features]
-default = ["graphics", "embedded-graphics-core/default", "maybe-async/is_sync"]
+default = ["graphics"]
 graphics = ["embedded-graphics-core"]
 buffered = []
-async_draw = ["embedded-graphics-core/async_draw", "dep:shared-display-core"]
 
 [dependencies]
-embedded-graphics-core = { version = "0.4", default-features = false, optional = true }
+embedded-graphics-core = { version = "0.4", default-features = false, features = ["async_draw"], optional = true }
 embedded-hal = { version = "1.0.0" }
 display-interface = "0.5.0"
 display-interface-spi = "0.5.0"
-shared-display-core = { git = "https://github.com/paulmoseskailer/shared-display.git", optional = true }
+shared-display-core = { git = "https://github.com/paulmoseskailer/shared-display.git" }
 maybe-async = "0.2"
 
 [patch.crates-io]

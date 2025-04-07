@@ -1,5 +1,5 @@
 use crate::display::Display;
-use display_interface::{DisplayError, WriteOnlyDataCommand};
+use display_interface::{AsyncWriteOnlyDataCommand, DisplayError};
 use hal::delay::DelayNs;
 use hal::digital::OutputPin;
 
@@ -9,7 +9,7 @@ use crate::properties::DisplayRotation;
 /// Graphics Mode for the display
 pub struct GraphicsMode<DI>
 where
-    DI: WriteOnlyDataCommand,
+    DI: AsyncWriteOnlyDataCommand,
 {
     display: Display<DI>,
     #[cfg(feature = "buffered")]
@@ -18,7 +18,7 @@ where
 
 impl<DI> DisplayModeTrait<DI> for GraphicsMode<DI>
 where
-    DI: WriteOnlyDataCommand,
+    DI: AsyncWriteOnlyDataCommand,
 {
     #[cfg(not(feature = "buffered"))]
     /// Create new GraphicsMode instance
@@ -53,12 +53,12 @@ where
 
 impl<DI> GraphicsMode<DI>
 where
-    DI: WriteOnlyDataCommand,
+    DI: AsyncWriteOnlyDataCommand,
 {
     #[cfg(not(feature = "buffered"))]
     /// Clear the display
-    pub fn clear(&mut self) {
-        self.display.clear().unwrap();
+    pub async fn clear(&mut self) {
+        self.display.clear().await.unwrap();
     }
 
     #[cfg(feature = "buffered")]
@@ -101,7 +101,7 @@ where
     #[cfg(not(feature = "buffered"))]
     /// Turn a pixel on or off. A non-zero `value` is treated as on, `0` as off. If the X and Y
     /// coordinates are out of the bounds of the display, this method call is a noop.
-    pub fn set_pixel(&mut self, x: u32, y: u32, color: u16) {
+    pub async fn set_pixel(&mut self, x: u32, y: u32, color: u16) {
         let (display_width, display_height) = self.display.get_size().dimensions();
         let rot = self.display.get_rotation();
         let (nx, ny) = match rot {
@@ -110,9 +110,11 @@ where
         };
         self.display
             .set_draw_area((nx as u8, ny as u8), (display_width, display_height))
+            .await
             .unwrap();
         self.display
             .draw(&[(color >> 8) as u8, color as u8])
+            .await
             .unwrap();
     }
 
@@ -136,14 +138,14 @@ where
 
     /// Display is set up in column mode, i.e. a byte walks down a column of 8 pixels from
     /// column 0 on the left, to column _n_ on the right
-    pub fn init(&mut self) -> Result<(), DisplayError> {
-        self.display.init()?;
+    pub async fn init(&mut self) -> Result<(), DisplayError> {
+        self.display.init().await?;
         Ok(())
     }
 
     /// Set the display rotation
-    pub fn set_rotation(&mut self, rot: DisplayRotation) -> Result<(), DisplayError> {
-        self.display.set_rotation(rot)
+    pub async fn set_rotation(&mut self, rot: DisplayRotation) -> Result<(), DisplayError> {
+        self.display.set_rotation(rot).await
     }
 
     /// Get display dimensions, taking into account the current rotation of the display
@@ -164,8 +166,7 @@ use self::embedded_graphics_core::prelude::{
 use self::embedded_graphics_core::{prelude::PointsIter, primitives::Rectangle};
 
 #[cfg(feature = "graphics")]
-#[maybe_async::maybe_async(AFIT)]
-impl<DI: WriteOnlyDataCommand> DrawTarget for GraphicsMode<DI> {
+impl<DI: AsyncWriteOnlyDataCommand> DrawTarget for GraphicsMode<DI> {
     type Color = Rgb565;
     type Error = ();
 
@@ -175,13 +176,11 @@ impl<DI: WriteOnlyDataCommand> DrawTarget for GraphicsMode<DI> {
     {
         let bb = self.bounding_box();
 
-        pixels
-            .into_iter()
-            .filter(|Pixel(pos, _)| bb.contains(*pos))
-            .for_each(|Pixel(pos, color)| {
-                self.set_pixel(pos.x as u32, pos.y as u32, RawU16::from(color).into_inner())
-            });
-
+        let contained_pixels = pixels.into_iter().filter(|Pixel(pos, _)| bb.contains(*pos));
+        for Pixel(pos, color) in contained_pixels {
+            self.set_pixel(pos.x as u32, pos.y as u32, RawU16::from(color).into_inner())
+                .await
+        }
         Ok(())
     }
 
@@ -204,25 +203,30 @@ impl<DI: WriteOnlyDataCommand> DrawTarget for GraphicsMode<DI> {
             DisplayRotation::Rotate90 | DisplayRotation::Rotate270 => ((sy, sx), (ey, ex)),
         };
 
-        self.display.set_draw_area(area_start, area_end).unwrap();
+        self.display
+            .set_draw_area(area_start, area_end)
+            .await
+            .unwrap();
 
         // Get an iterator of colours as u16
         // Check points for containment
-        area.points()
+        let iter = area
+            .points()
             .zip(colors)
             .filter(|(pos, _)| drawable_area.contains(*pos))
-            .map(|(_, color)| RawU16::from(color).into_inner())
-            .for_each(|color| {
-                self.display
-                    .draw(&[(color >> 8) as u8, color as u8])
-                    .unwrap()
-            });
+            .map(|(_, color)| RawU16::from(color).into_inner());
+        for color in iter {
+            self.display
+                .draw(&[(color >> 8) as u8, color as u8])
+                .await
+                .unwrap()
+        }
 
         Ok(())
     }
 }
 
-impl<DI: WriteOnlyDataCommand> OriginDimensions for GraphicsMode<DI> {
+impl<DI: AsyncWriteOnlyDataCommand> OriginDimensions for GraphicsMode<DI> {
     fn size(&self) -> Size {
         let dim = self.display.get_size().dimensions();
         Size::from((dim.0 as u32, dim.1 as u32))

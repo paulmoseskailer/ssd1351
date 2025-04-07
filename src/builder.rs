@@ -6,7 +6,7 @@ use super::mode::raw::RawMode;
 use super::properties::DisplayRotation;
 use super::properties::DisplaySize;
 
-use display_interface::WriteOnlyDataCommand;
+use display_interface::AsyncWriteOnlyDataCommand;
 
 /// Builder struct. Driver options and interface are set using its methods.
 #[derive(Clone)]
@@ -53,7 +53,7 @@ impl Builder {
         buffer: &'static mut [u8],
     ) -> DisplayMode<RawMode<DI>>
     where
-        DI: WriteOnlyDataCommand,
+        DI: AsyncWriteOnlyDataCommand,
     {
         assert_eq!(buffer.len(), self.display_size.num_pixels() * 2);
         let properties = Display::new(display_interface, self.display_size, self.rotation);
@@ -64,7 +64,7 @@ impl Builder {
     /// Finish the builder and use the given interface to communicate with the display
     pub fn connect_interface<DI>(&self, display_interface: DI) -> DisplayMode<RawMode<DI>>
     where
-        DI: WriteOnlyDataCommand,
+        DI: AsyncWriteOnlyDataCommand,
     {
         let properties = Display::new(display_interface, self.display_size, self.rotation);
         DisplayMode::<RawMode<DI>>::new(properties)
