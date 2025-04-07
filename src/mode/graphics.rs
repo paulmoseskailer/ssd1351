@@ -63,12 +63,12 @@ where
 
     #[cfg(feature = "buffered")]
     /// Clear the display
-    pub fn clear(&mut self, flush: bool) {
+    pub async fn clear(&mut self, flush: bool) {
         for i in 0..self.buffer.len() {
             self.buffer[i] = 0u8;
         }
         if flush {
-            self.flush();
+            self.flush().await;
         }
     }
 
@@ -121,19 +121,20 @@ where
     #[cfg(feature = "buffered")]
     /// Turn a pixel on or off. A non-zero `value` is treated as on, `0` as off. If the X and Y
     /// coordinates are out of the bounds of the display, this method call is a noop.
-    pub fn set_pixel(&mut self, x: u32, y: u32, color: u16) {
+    pub async fn set_pixel(&mut self, x: u32, y: u32, color: u16) {
         // set bytes in buffer
         self.buffer[(y as usize * 128usize + x as usize) * 2] = (color >> 8) as u8;
         self.buffer[((y as usize * 128usize + x as usize) * 2) + 1usize] = color as u8;
     }
 
     #[cfg(feature = "buffered")]
-    pub fn flush(&mut self) {
+    pub async fn flush(&mut self) {
         let (display_width, display_height) = self.display.get_size().dimensions();
         self.display
             .set_draw_area((0, 0), (display_width, display_height))
+            .await
             .unwrap();
-        self.display.draw(self.buffer).unwrap();
+        self.display.draw(self.buffer).await.unwrap();
     }
 
     /// Display is set up in column mode, i.e. a byte walks down a column of 8 pixels from
