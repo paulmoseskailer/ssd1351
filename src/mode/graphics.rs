@@ -2,6 +2,7 @@ use crate::display::Display;
 use display_interface::{AsyncWriteOnlyDataCommand, DisplayError};
 use hal::delay::DelayNs;
 use hal::digital::OutputPin;
+use shared_display_core::{PixelInBuffer, SharableBufferedDisplay};
 
 use crate::mode::displaymode::DisplayModeTrait;
 use crate::properties::DisplayRotation;
@@ -231,5 +232,37 @@ impl<DI: AsyncWriteOnlyDataCommand> OriginDimensions for GraphicsMode<DI> {
     fn size(&self) -> Size {
         let dim = self.display.get_size().dimensions();
         Size::from((dim.0 as u32, dim.1 as u32))
+    }
+}
+
+#[cfg(feature = "buffered")]
+impl<DI: AsyncWriteOnlyDataCommand> SharableBufferedDisplay for GraphicsMode<DI> {
+    type BufferElement = u8;
+
+    fn get_buffer(&mut self) -> &mut [Self::BufferElement] {
+        self.buffer
+    }
+
+    fn calculate_buffer_index(
+        point: embedded_graphics_core::prelude::Point,
+        _parent_size: Size,
+    ) -> PixelInBuffer {
+        PixelInBuffer {
+            start_index: (point.y as usize * 128usize + point.x as usize) * 2,
+            width_in_buffer_elements: 2,
+        }
+    }
+
+    fn set_ith_buffer_element_for_pixel(
+        buffer: &mut Self::BufferElement,
+        pixel: Pixel<Self::Color>,
+        i: usize,
+    ) {
+        let raw_color: u16 = RawU16::from(pixel.1).into_inner();
+        match i {
+            0 => *buffer = (raw_color >> 8) as u8,
+            1 => *buffer = raw_color as u8,
+            _ => panic!(),
+        };
     }
 }
