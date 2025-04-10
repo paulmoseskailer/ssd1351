@@ -2,7 +2,7 @@ use crate::display::Display;
 use display_interface::{AsyncWriteOnlyDataCommand, DisplayError};
 use hal::delay::DelayNs;
 use hal::digital::OutputPin;
-use shared_display_core::{PixelInBuffer, SharableBufferedDisplay};
+use shared_display_core::SharableBufferedDisplay;
 
 use crate::mode::displaymode::DisplayModeTrait;
 use crate::properties::DisplayRotation;
@@ -237,32 +237,30 @@ impl<DI: AsyncWriteOnlyDataCommand> OriginDimensions for GraphicsMode<DI> {
 
 #[cfg(feature = "buffered")]
 impl<DI: AsyncWriteOnlyDataCommand> SharableBufferedDisplay for GraphicsMode<DI> {
-    type BufferElement = u8;
+    type BufferElement = u16;
 
     fn get_buffer(&mut self) -> &mut [Self::BufferElement] {
-        self.buffer
+        assert_eq!(self.buffer.len() % 2, 0);
+        let buffer_len_in_u16s = self.buffer.len() / 2;
+        let ptr = self.buffer.as_mut_ptr() as *mut u16;
+        assert_eq!(
+            ptr.align_offset(::core::mem::align_of::<u16>()),
+            0,
+            "Misaligned pointer for u16"
+        );
+
+        unsafe { ::core::slice::from_raw_parts_mut(ptr, buffer_len_in_u16s) }
     }
 
     fn calculate_buffer_index(
         point: embedded_graphics_core::prelude::Point,
         _parent_size: Size,
-    ) -> PixelInBuffer {
-        PixelInBuffer {
-            start_index: (point.y as usize * 128usize + point.x as usize) * 2,
-            width_in_buffer_elements: 2,
-        }
+    ) -> usize {
+        point.y as usize * 128usize + point.x as usize
     }
 
-    fn set_ith_buffer_element_for_pixel(
-        buffer: &mut Self::BufferElement,
-        pixel: Pixel<Self::Color>,
-        i: usize,
-    ) {
+    fn set_pixel(buffer: &mut Self::BufferElement, pixel: Pixel<Self::Color>) {
         let raw_color: u16 = RawU16::from(pixel.1).into_inner();
-        match i {
-            0 => *buffer = (raw_color >> 8) as u8,
-            1 => *buffer = raw_color as u8,
-            _ => panic!(),
-        };
+        *buffer = raw_color
     }
 }
