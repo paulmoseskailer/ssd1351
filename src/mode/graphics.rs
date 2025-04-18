@@ -138,6 +138,31 @@ where
         self.display.draw(self.buffer).await.unwrap();
     }
 
+    #[cfg(feature = "buffered")]
+    pub async fn flush_area(&mut self, area: &Rectangle) {
+        let (display_width, _) = self.display.get_size().dimensions();
+        let num_rows = area.size.height;
+        let bottom_right = area.bottom_right().unwrap_or(area.top_left);
+
+        // flush row by row
+        for row in 0..num_rows {
+            let row_index = area.top_left.y as usize + row as usize;
+            let row_start_index =
+                (row_index * display_width as usize + area.top_left.x as usize) * 2;
+
+            self.display
+                .set_draw_area(
+                    (area.top_left.x as u8, row_index as u8),
+                    (bottom_right.x as u8, row_index as u8),
+                )
+                .await
+                .unwrap();
+            let row_in_buffer =
+                &self.buffer[row_start_index..(row_start_index + 2 * area.size.width as usize)];
+            self.display.draw(row_in_buffer).await.unwrap();
+        }
+    }
+
     /// Display is set up in column mode, i.e. a byte walks down a column of 8 pixels from
     /// column 0 on the left, to column _n_ on the right
     pub async fn init(&mut self) -> Result<(), DisplayError> {
@@ -159,10 +184,13 @@ where
 #[cfg(feature = "graphics")]
 extern crate embedded_graphics_core;
 #[cfg(feature = "graphics")]
-use self::embedded_graphics_core::pixelcolor::{raw::RawU16, Rgb565};
-#[cfg(feature = "graphics")]
 use self::embedded_graphics_core::prelude::{
     Dimensions, DrawTarget, OriginDimensions, Pixel, RawData, Size,
+};
+#[cfg(feature = "graphics")]
+use self::embedded_graphics_core::{
+    pixelcolor::{raw::RawU16, Rgb565},
+    primitives::Rectangle,
 };
 #[cfg(all(feature = "graphics", not(feature = "buffered")))]
 use self::embedded_graphics_core::{prelude::PointsIter, primitives::Rectangle};
