@@ -2,10 +2,13 @@ use crate::display::Display;
 use display_interface::{AsyncWriteOnlyDataCommand, DisplayError};
 use hal::delay::DelayNs;
 use hal::digital::OutputPin;
-use shared_display_core::SharableBufferedDisplay;
+use shared_display_core::{CompressableDisplay, SharableBufferedDisplay};
 
 use crate::mode::displaymode::DisplayModeTrait;
 use crate::properties::DisplayRotation;
+
+extern crate alloc;
+use alloc::vec::Vec;
 
 /// Graphics Mode for the display
 pub struct GraphicsMode<DI>
@@ -147,18 +150,16 @@ where
         // flush row by row
         for row in 0..num_rows {
             let row_index = area.top_left.y as usize + row as usize;
-            let row_start_index =
-                (row_index * display_width as usize + area.top_left.x as usize) * 2;
-
             self.display
                 .set_draw_area(
                     (area.top_left.x as u8, row_index as u8),
-                    (bottom_right.x as u8, row_index as u8),
+                    (bottom_right.x as u8 + 1, row_index as u8 + 1),
                 )
                 .await
                 .unwrap();
-            let row_in_buffer =
-                &self.buffer[row_start_index..(row_start_index + 2 * area.size.width as usize)];
+
+            let row_start = (row_index * display_width as usize + area.top_left.x as usize) * 2;
+            let row_in_buffer = &self.buffer[row_start..(row_start + 2 * area.size.width as usize)];
             self.display.draw(row_in_buffer).await.unwrap();
         }
     }
@@ -282,13 +283,38 @@ impl<DI: AsyncWriteOnlyDataCommand> SharableBufferedDisplay for GraphicsMode<DI>
 
     fn calculate_buffer_index(
         point: embedded_graphics_core::prelude::Point,
-        _parent_size: Size,
+        buffer_area_size: Size,
     ) -> usize {
-        point.y as usize * 128usize + point.x as usize
+        point.y as usize * buffer_area_size.width as usize + point.x as usize
     }
 
-    fn set_pixel(buffer: &mut Self::BufferElement, pixel: Pixel<Self::Color>) {
-        let raw_color: u16 = RawU16::from(pixel.1).into_inner();
-        *buffer = raw_color
+    fn map_to_buffer_element(color: Self::Color) -> Self::BufferElement {
+        RawU16::from(color).into_inner()
+    }
+}
+
+#[cfg(all(feature = "buffered", feature = "graphics"))]
+impl<DI: AsyncWriteOnlyDataCommand> CompressableDisplay for GraphicsMode<DI> {
+    async fn flush_chunk(&mut self, chunk: Vec<Self::BufferElement>, chunk_area: Rectangle) {
+        let bottom_right = chunk_area.bottom_right().unwrap_or(chunk_area.top_left);
+        self.display
+            .set_draw_area(
+                (chunk_area.top_left.x as u8, chunk_area.top_left.y as u8),
+                (bottom_right.x as u8 + 1, bottom_right.y as u8 + 1),
+            )
+            .await
+            .expect("set_draw_area for entire chunk failed");
+        let chunk_as_bytes: &[u8] = unsafe {
+            core::slice::from_raw_parts(
+                chunk.as_ptr() as *const u8,
+                chunk.len() * core::mem::size_of::<u16>(),
+            )
+        };
+        self.display.draw(chunk_as_bytes).await.unwrap();
+    }
+
+    fn drop_buffer(&mut self) {
+        // this does not actually de-allocate the buffer!
+        self.buffer = &mut [];
     }
 }
