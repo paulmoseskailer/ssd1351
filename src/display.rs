@@ -93,10 +93,10 @@ where
         start: (u8, u8),
         end: (u8, u8),
     ) -> Result<(), DisplayError> {
-        Command::Column(start.0, end.0 - 1)
+        Command::Column(start.0, end.0.saturating_sub(1))
             .send(&mut self.iface)
             .await?;
-        Command::Row(start.1, end.1 - 1)
+        Command::Row(start.1, end.1.saturating_sub(1))
             .send(&mut self.iface)
             .await?;
         Command::WriteRam.send(&mut self.iface).await?;
