@@ -6,9 +6,6 @@ use hal::digital::OutputPin;
 use crate::mode::displaymode::DisplayModeTrait;
 use crate::properties::DisplayRotation;
 
-extern crate alloc;
-use alloc::vec::Vec;
-
 /// Graphics Mode for the display
 pub struct GraphicsMode<DI>
 where
