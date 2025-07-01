@@ -2,7 +2,6 @@ use crate::display::Display;
 use display_interface::{DisplayError, WriteOnlyDataCommand};
 use hal::delay::DelayNs;
 use hal::digital::OutputPin;
-use shared_display_core::SharableBufferedDisplay;
 
 use crate::mode::displaymode::DisplayModeTrait;
 use crate::properties::DisplayRotation;
@@ -231,6 +230,8 @@ impl<DI: WriteOnlyDataCommand> OriginDimensions for GraphicsMode<DI> {
 }
 
 #[cfg(feature = "buffered")]
+use shared_display_core::SharableBufferedDisplay;
+#[cfg(feature = "buffered")]
 impl<DI: WriteOnlyDataCommand> SharableBufferedDisplay for GraphicsMode<DI> {
     type BufferElement = u16;
 
@@ -254,8 +255,7 @@ impl<DI: WriteOnlyDataCommand> SharableBufferedDisplay for GraphicsMode<DI> {
         point.y as usize * 128usize + point.x as usize
     }
 
-    fn set_pixel(buffer: &mut Self::BufferElement, pixel: Pixel<Self::Color>) {
-        let raw_color: u16 = RawU16::from(pixel.1).into_inner();
-        *buffer = raw_color
+    fn map_to_buffer_element(color: Self::Color) -> Self::BufferElement {
+        RawU16::from(color).into_inner()
     }
 }

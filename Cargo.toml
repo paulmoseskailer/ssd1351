@@ -16,7 +16,8 @@ exclude = [
 ]
 
 [features]
-default = ["graphics", "embedded-graphics-core/default", "maybe-async/is_sync"]
+#default = ["graphics", "embedded-graphics-core/default", "maybe-async/is_sync"]
+default = ["graphics", "buffered", "async_draw"]
 graphics = ["embedded-graphics-core"]
 buffered = []
 async_draw = ["embedded-graphics-core/async_draw", "dep:shared-display-core"]
