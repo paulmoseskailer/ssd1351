@@ -2,7 +2,6 @@ use crate::display::Display;
 use display_interface::{AsyncWriteOnlyDataCommand, DisplayError};
 use hal::delay::DelayNs;
 use hal::digital::OutputPin;
-use shared_display_core::{CompressableDisplay, SharableBufferedDisplay};
 
 use crate::mode::displaymode::DisplayModeTrait;
 use crate::properties::DisplayRotation;
@@ -265,6 +264,8 @@ impl<DI: AsyncWriteOnlyDataCommand> OriginDimensions for GraphicsMode<DI> {
 }
 
 #[cfg(feature = "buffered")]
+use shared_display_core::SharableBufferedDisplay;
+#[cfg(feature = "buffered")]
 impl<DI: AsyncWriteOnlyDataCommand> SharableBufferedDisplay for GraphicsMode<DI> {
     type BufferElement = u16;
 
@@ -290,31 +291,5 @@ impl<DI: AsyncWriteOnlyDataCommand> SharableBufferedDisplay for GraphicsMode<DI>
 
     fn map_to_buffer_element(color: Self::Color) -> Self::BufferElement {
         RawU16::from(color).into_inner()
-    }
-}
-
-#[cfg(all(feature = "buffered", feature = "graphics"))]
-impl<DI: AsyncWriteOnlyDataCommand> CompressableDisplay for GraphicsMode<DI> {
-    async fn flush_chunk(&mut self, chunk: Vec<Self::BufferElement>, chunk_area: Rectangle) {
-        let bottom_right = chunk_area.bottom_right().unwrap_or(chunk_area.top_left);
-        self.display
-            .set_draw_area(
-                (chunk_area.top_left.x as u8, chunk_area.top_left.y as u8),
-                (bottom_right.x as u8 + 1, bottom_right.y as u8 + 1),
-            )
-            .await
-            .expect("set_draw_area for entire chunk failed");
-        let chunk_as_bytes: &[u8] = unsafe {
-            core::slice::from_raw_parts(
-                chunk.as_ptr() as *const u8,
-                chunk.len() * core::mem::size_of::<u16>(),
-            )
-        };
-        self.display.draw(chunk_as_bytes).await.unwrap();
-    }
-
-    fn drop_buffer(&mut self) {
-        // this does not actually de-allocate the buffer!
-        self.buffer = &mut [];
     }
 }
