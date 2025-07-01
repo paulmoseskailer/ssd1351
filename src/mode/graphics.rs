@@ -287,6 +287,8 @@ impl<DI: AsyncWriteOnlyDataCommand> SharableBufferedDisplay for GraphicsMode<DI>
     }
 
     fn map_to_buffer_element(color: Self::Color) -> Self::BufferElement {
-        RawU16::from(color).into_inner()
+        let value = RawU16::from(color).into_inner();
+        // colors in the buffer are endian-swapped, see buffered set_pixel above
+        value.rotate_left(8)
     }
 }
