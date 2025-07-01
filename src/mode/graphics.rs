@@ -254,8 +254,7 @@ impl<DI: WriteOnlyDataCommand> SharableBufferedDisplay for GraphicsMode<DI> {
         point.y as usize * 128usize + point.x as usize
     }
 
-    fn set_pixel(buffer: &mut Self::BufferElement, pixel: Pixel<Self::Color>) {
-        let raw_color: u16 = RawU16::from(pixel.1).into_inner();
-        *buffer = raw_color
+    fn map_to_buffer_element(color: Self::Color) -> Self::BufferElement {
+        RawU16::from(color).into_inner()
     }
 }
