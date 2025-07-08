@@ -292,3 +292,44 @@ impl<DI: AsyncWriteOnlyDataCommand> SharableBufferedDisplay for GraphicsMode<DI>
         value.rotate_left(8)
     }
 }
+
+use shared_display_core::CompressableDisplay;
+impl<DI: AsyncWriteOnlyDataCommand> CompressableDisplay for GraphicsMode<DI> {
+    type BufferElement = u16;
+
+    fn calculate_buffer_index(
+        point: embedded_graphics_core::prelude::Point,
+        buffer_area_size: Size,
+    ) -> usize {
+        point.y as usize * buffer_area_size.width as usize + point.x as usize
+    }
+
+    fn map_to_buffer_element(color: Self::Color) -> Self::BufferElement {
+        let value = RawU16::from(color).into_inner();
+        // colors in the buffer are endian-swapped, see buffered set_pixel above
+        value.rotate_left(8)
+    }
+
+    async fn flush_chunk(&mut self, chunk: &[Self::BufferElement], chunk_area: Rectangle) {
+        assert_eq!(
+            chunk.len(),
+            (chunk_area.size.height * chunk_area.size.width) as usize
+        );
+        assert_eq!(chunk_area.top_left.x, 0);
+        self.display
+            .set_draw_area(
+                (0, chunk_area.top_left.y as u8),
+                (
+                    chunk_area.size.width as u8,
+                    chunk_area.top_left.y as u8 + chunk_area.size.height as u8,
+                ),
+            )
+            .await
+            .unwrap();
+
+        let chunk_len_in_u8s = chunk.len() * 2;
+        let chunk =
+            unsafe { ::core::slice::from_raw_parts(chunk.as_ptr() as *mut u8, chunk_len_in_u8s) };
+        self.display.draw(&chunk).await.unwrap();
+    }
+}
