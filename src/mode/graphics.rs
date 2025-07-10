@@ -180,6 +180,8 @@ where
 
 #[cfg(feature = "graphics")]
 extern crate embedded_graphics_core;
+#[cfg(all(feature = "graphics", not(feature = "buffered")))]
+use self::embedded_graphics_core::prelude::PointsIter;
 #[cfg(feature = "graphics")]
 use self::embedded_graphics_core::prelude::{
     Dimensions, DrawTarget, OriginDimensions, Pixel, RawData, Size,
@@ -189,8 +191,6 @@ use self::embedded_graphics_core::{
     pixelcolor::{raw::RawU16, Rgb565},
     primitives::Rectangle,
 };
-#[cfg(all(feature = "graphics", not(feature = "buffered")))]
-use self::embedded_graphics_core::{prelude::PointsIter, primitives::Rectangle};
 
 #[cfg(feature = "graphics")]
 impl<DI: AsyncWriteOnlyDataCommand> DrawTarget for GraphicsMode<DI> {
