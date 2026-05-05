@@ -261,7 +261,7 @@ impl<DI: AsyncWriteOnlyDataCommand> OriginDimensions for GraphicsMode<DI> {
 }
 
 #[cfg(feature = "buffered")]
-use shared_display_core::SharableBufferedDisplay;
+use asydis_core::SharableBufferedDisplay;
 #[cfg(feature = "buffered")]
 impl<DI: AsyncWriteOnlyDataCommand> SharableBufferedDisplay for GraphicsMode<DI> {
     type BufferElement = u16;
@@ -293,7 +293,7 @@ impl<DI: AsyncWriteOnlyDataCommand> SharableBufferedDisplay for GraphicsMode<DI>
     }
 }
 
-use shared_display_core::CompressableDisplay;
+use asydis_core::CompressableDisplay;
 impl<DI: AsyncWriteOnlyDataCommand> CompressableDisplay for GraphicsMode<DI> {
     type BufferElement = u16;
 
